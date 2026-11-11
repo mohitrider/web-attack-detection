@@ -1,0 +1,172 @@
+\documentclass{article}
+\PassOptionsToPackage{numbers}{natbib}
+\usepackage[preprint]{neurips_2026}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\hypersetup{hidelinks}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{xcolor}
+
+% This is an ES 678 course paper, not a conference submission.
+\makeatletter
+\renewcommand{\@noticestring}{ES 678 Course Project}
+\makeatother
+
+\title{Web Attack Detection Using Network Flow Features: Cross-Day Generalization and Robustness Analysis}
+
+\author{%
+  Mohit Kumar \\
+  Roll Number: 26210173 \\
+  ES 678 \\
+  Indian Institute of Technology Gandhinagar
+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Web attacks are rare in network-flow data, and traffic patterns can change from one day to the next. I evaluate whether models trained on one day can detect Brute Force-Web, Brute Force-XSS, and SQL Injection flows on another day using the CSE-CIC-IDS2018 dataset. The comparison uses Logistic Regression, Linear SVM, and XGBoost. For each direction, the decision threshold is selected on validation data from the training day and kept fixed on the test day. XGBoost obtains F1 scores of 0.8195 (Thursday to Friday) and 0.9071 (Friday to Thursday), with Average Precision scores of 0.7111 and 0.9421. Feature ablation, training-composition comparisons, and a seen/unseen-signature analysis help examine these results. The findings are encouraging for the two dates tested, but the limited time span and repeated flow signatures prevent a broad claim of deployment robustness.
+\end{abstract}
+
+\section{Problem and Motivation}
+
+An intrusion detection model should identify malicious activity without raising too many false alarms. This is difficult when attacks make up only a tiny fraction of network traffic. A model can appear accurate simply by predicting benign traffic most of the time, so the number of attacks it actually detects matters.
+
+I focus on a specific question: can a model trained on one day's network flows detect web attacks in traffic collected on another day? A random train-test split would not answer this question as directly, because traffic from the same day could appear in both sets. I therefore evaluate transfer in both directions, from Thursday to Friday and from Friday to Thursday.
+
+Each observation is a network flow represented by CICFlowMeter-derived features. The task is binary classification. Brute Force-Web, Brute Force-XSS, and SQL Injection are combined into the attack class; Benign is the other class. The models use flow-level features and do not inspect packet payloads.
+
+\section{Data and Preparation}
+
+I use the Thursday, 22 February 2018, and Friday, 23 February 2018, CSV files from the CSE-CIC-IDS2018 dataset \cite{cseids2018}. Each file contains 1,048,575 flows. After excluding Timestamp and Label, there are 78 candidate feature columns. Thursday contains 362 attack flows and Friday contains 566. Across both days, this gives 928 attacks among 2,097,150 flows. Attacks account for approximately 0.034\% of Thursday's traffic and 0.054\% of Friday's traffic.
+
+The target is defined as
+\[
+y_i =
+\begin{cases}
+1, & \text{if flow } i \text{ belongs to one of the three attack classes},\\
+0, & \text{if flow } i \text{ is benign}.
+\end{cases}
+\]
+
+The initial data audit found 7,323 missing and 15,313 infinite feature entries across the two files. Feature columns were converted to numeric values, and positive and negative infinities were treated as missing. Median imputation was then applied inside each model pipeline. Constant or entirely missing columns were excluded using the training data only.
+
+For the train-validation split, I grouped rows by a hash of their numeric feature signatures, excluding Timestamp and Label. Rows with the same signature were assigned to the same partition; a fixed modulo-five rule determined the validation groups. The hash was used only for partitioning and later diagnostics, not as a model input. This prevents an identical feature signature from appearing in both training and validation within a source day.
+
+From the training partition, I sampled 50,000 benign flows from a 10\% per-chunk candidate pool and retained all attack flows in that partition. The random seed was fixed at 2026. Validation data were left at their naturally occurring class distribution.
+
+The Thursday training set contains 50,282 flows, of which 282 are attacks; its validation set contains 212,604 flows, including 80 attacks. The Friday training set contains 50,464 flows, including 464 attacks; its validation set contains 213,462 flows, including 102 attacks. Thus, threshold selection is based on relatively few positive validation examples.
+
+The full-feature XGBoost configuration retained 68 usable features after training-only filtering. This is fewer than the 78 candidate columns in the raw files because unusable columns were removed before fitting.
+
+A separate overlap audit found 52,710 numeric feature signatures shared across the two dates. Nine shared signatures had conflicting labels, including three signatures that appeared with both benign and attack labels. Repeated signatures are not automatically evidence of leakage, but this overlap is relevant when interpreting cross-day results.
+
+\section{Methods}
+
+I compare three classifiers using the same source-day training and validation partitions.
+
+\textbf{Logistic Regression (LR)} is the linear probabilistic baseline. It uses $L_2$ regularization with $C=1$, balanced class weights, and a maximum of 2,000 iterations. Features are standardized before fitting.
+
+\textbf{Linear SVM} provides a second linear baseline, using $C=1$, balanced class weights, and a maximum of 15,000 iterations. The LR and Linear SVM implementations, along with the imputation and scaling pipelines, use scikit-learn \cite{pedregosa2011}.
+
+\textbf{XGBoost} is a gradient-boosted decision-tree model that can represent nonlinear relationships and interactions between features \cite{chen2016}. I use 250 estimators, maximum tree depth 4, learning rate 0.05, subsampling 0.8, column subsampling 0.8, minimum child weight 5, and $L_2$ regularization of 1. The positive-class weight is set to the ratio of benign to attack training examples.
+
+For each model, I select the decision threshold that maximizes F1 on the source-day validation set. The fitted model and selected threshold are then kept unchanged when evaluating the complete CSV file from the other day. Target-day labels are used only to calculate the final test metrics.
+
+\section{Evaluation Design}
+
+The two experiments are Thursday-to-Friday and Friday-to-Thursday. In each case, one day's training partition is used to fit the model, and that day's validation partition is used to select the threshold. The complete opposite-day file is the test set. The test data retain their natural class distribution.
+
+I report precision, recall, F1, and Average Precision (AP). Precision is the fraction of predicted attacks that are actual attacks; recall is the fraction of actual attacks that are detected. F1 balances the two:
+\[
+F_1 = 2\frac{\text{Precision}\cdot\text{Recall}}
+{\text{Precision}+\text{Recall}}.
+\]
+AP summarises precision across recall levels and is useful here because the positive class is extremely rare. The model configurations are fixed rather than chosen through an extensive hyperparameter search. The threshold is selected using validation data only and is not retuned on the target day.
+
+\section{Results and Error Analysis}
+
+Table~\ref{tab:main} shows the results on the complete opposite-day test files. XGBoost performs substantially better than the two linear baselines in both transfer directions, although its recall is not the same in the two experiments.
+
+\begin{table}[t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\caption{Cross-day test performance. AP denotes Average Precision.}
+\label{tab:main}
+\begin{tabular}{llrrrr}
+\toprule
+Train $\rightarrow$ Test & Model & Precision & Recall & F1 & AP \\
+\midrule
+Thu $\rightarrow$ Fri & LR & 0.1938 & 0.4435 & 0.2697 & 0.1770 \\
+ & Linear SVM & 0.2312 & 0.4028 & 0.2938 & 0.1780 \\
+ & XGBoost & \textbf{0.9619} & 0.7138 & \textbf{0.8195} & \textbf{0.7111} \\
+\midrule
+Fri $\rightarrow$ Thu & LR & 0.3565 & 0.5525 & 0.4334 & 0.1582 \\
+ & Linear SVM & 0.1040 & 0.5718 & 0.1760 & 0.1323 \\
+ & XGBoost & 0.8845 & \textbf{0.9309} & \textbf{0.9071} & \textbf{0.9421} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For Thursday-to-Friday transfer, XGBoost correctly detects 404 of the 566 attacks. It produces 16 false positives and misses 162 attacks. Its precision is therefore high (0.9619), but recall is lower (0.7138). For Friday-to-Thursday transfer, it detects 337 of 362 attacks, misses 25, and produces 44 false positives. Recall rises to 0.9309 and F1 to 0.9071. The difference between the two directions is important: the same model configuration does not transfer equally well both ways.
+
+The linear baselines also show why accuracy alone would be misleading for this task. In the Friday-to-Thursday SVM experiment, for example, the model produces 1,783 false positives while detecting 207 attacks. Under such severe imbalance, a large number of benign flows can dominate an overall accuracy score.
+
+The attack categories are not equally easy to detect. For Thursday-to-Friday transfer, XGBoost recall is 0.5801 for Brute Force-Web, 0.9603 for Brute Force-XSS, and 0.9245 for SQL Injection. In the reverse direction, the recalls are 0.9357, 0.9241, and 0.9118, respectively. Brute Force-Web is the clearest weak point in the first direction.
+
+\section{Graduate Depth Analysis}
+
+\textbf{Feature-group ablation.}
+I tested XGBoost with all usable features, after removing destination port and protocol, and after removing 27 timing and rate-related features. The full configuration uses 68 features; the two reduced configurations use 66 and 41, respectively.
+
+Removing destination port and protocol lowers F1 from 0.8195 to 0.7498 for Thursday-to-Friday transfer and from 0.9071 to 0.8293 for Friday-to-Thursday transfer. AP also falls, from 0.7111 to 0.6616 and from 0.9421 to 0.9036. By contrast, removing the timing and rate group gives F1 values of 0.8178 and 0.9597. The effect of this second ablation is therefore small in one direction and favourable in the other. These results show how the tested feature groups affect this model and these splits; they do not establish that individual features cause the predictions.
+
+\textbf{Training-composition sensitivity.}
+I compared four strategies: the current undersampled training set with class weights, the same training set without class weights, a 10:1 benign-to-attack ratio without class weights, and a 1:1 ratio without class weights. In this separate sensitivity run, the F1 scores for these four strategies are 0.8195, 0.8177, 0.8208, and 0.6690 for Thursday-to-Friday transfer, respectively. For Friday-to-Thursday transfer, the corresponding scores are 0.9264, 0.9488, 0.7800, and 0.6908. These sensitivity results are interpreted as comparisons within that separate run. The more balanced training sets do not automatically improve test performance. Since the 10:1 and 1:1 strategies also change the total number of training examples, this is a comparison of training composition and undersampling together, not an isolated test of class ratio.
+
+\textbf{Seen and unseen feature signatures.}
+I also divided target-day flows according to whether their numeric feature signature was present in the sampled source-day training set. For Thursday-to-Friday transfer, the seen group contains 56,748 flows and 27 attacks; the unseen group contains 991,827 flows and 539 attacks. For Friday-to-Thursday transfer, the corresponding groups contain 57,695 flows with 23 attacks and 990,880 flows with 339 attacks.
+
+XGBoost obtains F1 of 1.0000 on each seen group, but those scores are based on only 27 and 23 attacks. On the much larger unseen groups, F1 is 0.8090 and 0.9010. This is useful evidence that the model's performance is not confined to signatures in the sampled training set. However, ``unseen'' means absent from that sample; a signature may still have occurred in source-day traffic that was not sampled. The analysis therefore cannot rule out all repeated-pattern or dependency effects.
+
+\section{Conclusion}
+
+The two dates were selected to provide a controlled cross-day evaluation in both directions using the available web-attack traffic. However, evaluating only two dates limits the scope of the conclusions: the results cannot establish whether the observed performance will persist across a wider range of days, networks, or attack types. The study also focuses on only three attack categories. The validation sets contain 80 and 102 attacks, respectively, so the F1-maximising thresholds may be sensitive to a relatively small number of positive examples. The two transfer directions also exhibit noticeably different performance.
+
+The feature-hash split keeps identical signatures together between training and validation within each source day, but it does not group by host, connection, or time. Further, some feature signatures appear on both dates, and a small number have conflicting labels. These patterns make it difficult to rule out all forms of dependence between source and target traffic. The seen/unseen analysis has a related limitation because it defines novelty relative to the sampled training set rather than the full source day.
+
+Within this scope, XGBoost is the strongest of the three models tested. Its F1 scores are 0.8195 and 0.9071, with AP of 0.7111 and 0.9421. The feature-group ablation shows that removing destination-port and protocol features reduces F1 from 0.8195 to 0.7498 for Thursday-to-Friday transfer and from 0.9071 to 0.8293 for Friday-to-Thursday transfer. This indicates that these features collectively contribute to the models' performance in the two cross-day evaluations. The training-composition comparison also suggests that aggressive benign undersampling is not necessarily helpful.
+
+\section{AI-Use Disclosure}
+
+ChatGPT was used for conceptual explanations, code development and debugging assistance, and editing suggestions. I ran the experiments, verified the reported results, and take responsibility for the submitted work.
+
+\begin{thebibliography}{9}
+
+\bibitem{cseids2018}
+\emph{A Realistic Cyber Defense Dataset (CSE-CIC-IDS2018)}.
+\newblock Registry of Open Data on AWS.
+\newblock \url{https://registry.opendata.aws/cse-cic-ids2018/}.
+Accessed November 4, 2026.
+
+\bibitem{chen2016}
+T. Chen and C. Guestrin.
+\newblock XGBoost: A scalable tree boosting system.
+\newblock In \textit{Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining}, pages 785--794, 2016.
+\newblock doi: 10.1145/2939672.2939785.
+
+\bibitem{pedregosa2011}
+F. Pedregosa et al.
+\newblock Scikit-learn: Machine learning in Python.
+\newblock \textit{Journal of Machine Learning Research}, 12:2825--2830, 2011.
+
+\end{thebibliography}
+
+\end{document}
