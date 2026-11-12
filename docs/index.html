@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Interactive research dashboard for cross-day web-attack detection using CSE-CIC-IDS2018 network-flow features.">
+  <title>Web Attack Detection Using Network Flow Features | ES 678</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#overview" aria-label="Web Attack Detection research dashboard home">
+        <span class="brand-mark"><span></span><span></span><span></span></span>
+        <span><strong>WEB ATTACK</strong><small>RESEARCH DASHBOARD</small></span>
+      </a>
+      <div class="side-label">PROJECT WORKSPACE</div>
+      <nav class="nav-list" aria-label="Dashboard sections">
+        <button class="nav-link active" data-view="overview"><span class="nav-icon">◫</span>Overview</button>
+        <button class="nav-link" data-view="models"><span class="nav-icon">↗</span>Model comparison</button>
+        <button class="nav-link" data-view="ablation"><span class="nav-icon">⌘</span>Feature ablation</button>
+        <button class="nav-link" data-view="imbalance"><span class="nav-icon">◒</span>Class imbalance</button>
+        <button class="nav-link" data-view="patterns"><span class="nav-icon">⤢</span>Seen vs unseen</button>
+        <button class="nav-link" data-view="data"><span class="nav-icon">▤</span>Data audit</button>
+      </nav>
+      <div class="sidebar-foot">
+        <span class="pulse-dot"></span>
+        <div><strong>Offline evaluation</strong><small>Research prototype · v1</small></div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div class="breadcrumb"><span>PROJECTS</span><b>/</b><strong>WEB ATTACK DETECTION</strong></div>
+        <div class="topbar-right"><span class="status-pill"><i></i>Experiment results loaded</span><span class="avatar">ML</span></div>
+      </header>
+
+      <section class="hero">
+        <div class="hero-copy">
+          <div class="eyebrow"><span class="eyebrow-line"></span>ES 678 · MACHINE LEARNING RESEARCH</div>
+          <h1>Web Attack Detection<br><em>Using Network Flow Features</em></h1>
+          <p>Exploring how supervised models detect rare application-layer web attacks—and how well they generalise across different traffic days.</p>
+          <div class="hero-tags"><span>CSE-CIC-IDS2018</span><span>Cross-day evaluation</span><span>Binary classification</span></div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="orb orb-one"></div><div class="orb orb-two"></div>
+          <div class="flow-graphic"><span class="node n1"></span><span class="node n2"></span><span class="node n3"></span><span class="node n4"></span><span class="node n5"></span><svg viewBox="0 0 330 240" role="presentation"><path d="M34 118 C73 118 77 42 126 42 S181 117 222 117 S269 188 307 188"/><path d="M34 118 C82 118 86 203 135 203 S180 118 222 117 S268 42 307 42"/><path d="M34 118 H165"/></svg><div class="art-label label-a">FLOW IN</div><div class="art-label label-b">CLASSIFY</div><div class="art-label label-c">INSIGHT</div></div>
+          <div class="art-caption">TELEMETRY <span>→</span> MODEL <span>→</span> EVIDENCE</div>
+        </div>
+      </section>
+
+      <div id="load-error" class="notice error hidden">Dashboard data has not been exported yet. Run <code>python src/12_export_dashboard_data.py</code> from the project root, then refresh this page using a local server.</div>
+      <div id="load-status" class="load-status">Loading saved experiment results…</div>
+
+      <section class="view active" id="view-overview">
+        <div class="section-heading"><div><div class="eyebrow muted">AT A GLANCE</div><h2>Research overview</h2><p>What the data contains, what we tested, and the strongest current signals.</p></div><span class="section-index">01 / 06</span></div>
+        <div class="kpi-grid" id="overview-kpis"></div>
+        <div class="content-grid overview-grid">
+          <article class="panel panel-large"><div class="panel-head"><div><span class="panel-kicker">PRIMARY EXPERIMENT</span><h3>Cross-day model performance</h3><p>F1-score on the complete opposite-day test file.</p></div><span class="tag tag-purple">3 models · 2 directions</span></div>
+            <div class="overview-direction-grid" id="overview-direction-cards"></div>
+            <div class="insight-strip"><span class="insight-icon">✳</span><div><strong>Key observation</strong><p id="overview-insight">Across-day performance is not identical in both directions; see the detailed model view for metrics and error counts.</p></div></div>
+          </article>
+          <article class="panel"><div class="panel-head"><div><span class="panel-kicker">DATA PROFILE</span><h3>Class distribution</h3><p>Original two-day dataset.</p></div></div><div id="class-distribution" class="distribution-list"></div><div class="panel-footnote">Attack labels are grouped into one positive class for the main binary classification task.</div></article>
+        </div>
+        <div class="bottom-note"><span class="note-symbol">i</span><p><strong>Scope note:</strong> The dashboard reports offline experiments on the specified CSE-CIC-IDS2018 web-attack subset. It is not a live network sensor or a production security system.</p></div>
+      </section>
+
+      <section class="view" id="view-models">
+        <div class="section-heading"><div><div class="eyebrow muted">EXPERIMENT 01</div><h2>Model comparison</h2><p>Compare linear baselines and a tree-boosting model on the naturally imbalanced test day.</p></div><span class="section-index">02 / 06</span></div>
+        <div class="control-bar"><label>Evaluation direction<select id="model-direction"><option value="Thursday_to_Friday">Thursday → Friday</option><option value="Friday_to_Thursday">Friday → Thursday</option></select></label><label>Compare metric<select id="model-metric"><option value="F1">F1-score</option><option value="Precision">Precision</option><option value="Recall">Recall</option><option value="PR_AUC_AveragePrecision">Average precision (PR-AUC)</option><option value="ROC_AUC">ROC-AUC</option><option value="FP">False positives</option><option value="FN">False negatives</option></select></label></div>
+        <div class="content-grid two-col"><article class="panel"><div class="panel-head"><div><span class="panel-kicker">SELECTED METRIC</span><h3 id="model-chart-title">F1-score by model</h3><p>Bars are scaled to the largest value shown.</p></div></div><div id="model-bars" class="bar-chart"></div></article><article class="panel"><div class="panel-head"><div><span class="panel-kicker">TEST SET</span><h3>Detection trade-offs</h3><p>Thresholds were selected on validation data only.</p></div></div><div id="model-table-wrap"></div></article></div>
+        <article class="panel section-panel"><div class="panel-head"><div><span class="panel-kicker">ATTACK-SPECIFIC RECALL</span><h3>Which attacks are detected?</h3><p>Recall by original attack label, using the binary model predictions.</p></div></div><div id="attack-recall-table"></div></article>
+        <div class="bottom-note"><span class="note-symbol">i</span><p>PR-AUC is shown as average precision. Because attack prevalence is very low, precision and PR-AUC are important complements to ROC-AUC. Precision measured on a balanced test set would not reflect the original traffic prevalence.</p></div>
+      </section>
+
+      <section class="view" id="view-ablation">
+        <div class="section-heading"><div><div class="eyebrow muted">EXPERIMENT 02</div><h2>Feature ablation</h2><p>Test whether selected feature groups contribute to XGBoost's cross-day performance.</p></div><span class="section-index">03 / 06</span></div>
+        <div class="control-bar"><label>Evaluation direction<select id="ablation-direction"><option value="Thursday_to_Friday">Thursday → Friday</option><option value="Friday_to_Thursday">Friday → Thursday</option></select></label><div class="control-explainer">Thresholds are tuned on each variant's source-day validation partition.</div></div>
+        <div id="ablation-summary" class="summary-cards"></div>
+        <article class="panel section-panel"><div class="panel-head"><div><span class="panel-kicker">FEATURE GROUP COMPARISON</span><h3>Detection with selected features removed</h3><p>Evaluate changes in ranking quality, classification, and error counts.</p></div></div><div id="ablation-table"></div></article>
+        <div class="bottom-note"><span class="note-symbol">!</span><p>Ablation shows association with model performance, not causation. Feature groups can be correlated; each variant is evaluated after refitting the model.</p></div>
+      </section>
+
+      <section class="view" id="view-imbalance">
+        <div class="section-heading"><div><div class="eyebrow muted">EXPERIMENT 03</div><h2>Class-imbalance study</h2><p>Compare weighting and benign undersampling strategies while leaving validation and test prevalence unchanged.</p></div><span class="section-index">04 / 06</span></div>
+        <div class="control-bar"><label>Evaluation direction<select id="imbalance-direction"><option value="Thursday_to_Friday">Thursday → Friday</option><option value="Friday_to_Thursday">Friday → Thursday</option></select></label><label>Model<select id="imbalance-model"><option>Logistic Regression</option><option>Linear SVM</option><option>XGBoost</option></select></label></div>
+        <article class="panel section-panel"><div class="panel-head"><div><span class="panel-kicker">SENSITIVITY ANALYSIS</span><h3>Training strategy comparison</h3><p>The 10:1 and 1:1 strategies also use much smaller training sets.</p></div></div><div id="imbalance-table"></div></article>
+        <div class="notice warning"><strong>Interpretation:</strong> this is a combined training-composition/undersampling comparison. The balanced variants have fewer training rows, so differences cannot be attributed to class ratio alone.</div>
+      </section>
+
+      <section class="view" id="view-patterns">
+        <div class="section-heading"><div><div class="eyebrow muted">ROBUSTNESS CHECK</div><h2>Seen vs unseen feature patterns</h2><p>How performance changes when test-flow signatures occurred—or did not occur—in the sampled training data.</p></div><span class="section-index">05 / 06</span></div>
+        <div class="control-bar"><label>Evaluation direction<select id="pattern-direction"><option value="Thursday_to_Friday">Thursday → Friday</option><option value="Friday_to_Thursday">Friday → Thursday</option></select></label><label>Model<select id="pattern-model"><option>Logistic_Regression</option><option>Linear_SVM</option><option>XGBoost</option></select></label></div>
+        <div id="pattern-cards" class="summary-cards"></div>
+        <article class="panel section-panel"><div class="panel-head"><div><span class="panel-kicker">GENERALISATION CHECK</span><h3>Performance by feature-pattern group</h3><p>Feature signatures exclude Timestamp and Label.</p></div></div><div id="pattern-table"></div></article>
+        <div class="notice warning"><strong>Caution:</strong> perfect scores on the seen-pattern subsets came from very small attack counts (27 and 23). They are not evidence of perfect generalisation to new traffic. Hash signatures are diagnostic groupings, not a complete guarantee of leakage-free sampling.</div>
+      </section>
+
+      <section class="view" id="view-data">
+        <div class="section-heading"><div><div class="eyebrow muted">DATA & METHODS</div><h2>Dataset audit</h2><p>Preprocessing and evaluation choices grounded in the initial investigation.</p></div><span class="section-index">06 / 06</span></div>
+        <div class="kpi-grid" id="audit-kpis"></div>
+        <div class="content-grid two-col"><article class="panel"><div class="panel-head"><div><span class="panel-kicker">SOURCE FILES</span><h3>Traffic by day and label</h3><p>Rows in the two original files.</p></div></div><div id="day-table"></div></article><article class="panel"><div class="panel-head"><div><span class="panel-kicker">DATA QUALITY</span><h3>Audit findings</h3><p>Diagnostics identified before model fitting.</p></div></div><div id="quality-list" class="quality-list"></div></article></div>
+        <article class="panel section-panel"><div class="panel-head"><div><span class="panel-kicker">EVALUATION DESIGN</span><h3>What to keep in mind</h3></div></div><div class="method-grid"><div><span class="method-number">01</span><h4>Target</h4><p>Benign is the negative class; the three listed web-attack labels are combined into the positive class for the main detector.</p></div><div><span class="method-number">02</span><h4>Preprocessing</h4><p>Timestamp and target labels are excluded from predictive features. Non-finite numeric values are handled within training-fitted pipelines.</p></div><div><span class="method-number">03</span><h4>Thresholding</h4><p>Decision thresholds are selected using validation data, not the opposite-day test labels.</p></div><div><span class="method-number">04</span><h4>Limitations</h4><p>Only two traffic days and three web-attack categories are studied. Repeated patterns and some conflicting labels were observed and should be disclosed.</p></div></div></article>
+        <div class="bottom-note"><span class="note-symbol">i</span><p>Source: CSE-CIC-IDS2018, focusing on the Thursday 22-Feb-2018 and Friday 23-Feb-2018 TrafficForML_CICFlowMeter files. Findings apply to this selected subset; they should not be generalised automatically to all networks or attack types.</p></div>
+      </section>
+
+      <footer class="footer"><div><strong>ES 678 RESEARCH PROJECT</strong><span>Web Attack Detection · ES 678</span><small class="footer-author">Mohit Kumar · Roll No. 26210173</small></div><div class="footer-right"><span>Offline experimental dashboard</span><span class="footer-dot">•</span><span id="footer-record-count">Experiment records</span></div></footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
