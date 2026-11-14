@@ -89,6 +89,7 @@ source .venv/bin/activate
 Install dependencies:
 
 ```bash
+
 python -m pip install -r requirements.txt
 ```
 
