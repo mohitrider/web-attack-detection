@@ -116,11 +116,9 @@ The dashboard is an offline results explorer presenting selected experimental re
 
 ## Limitations
 
-- Only two dates are evaluated.
+
 - The study covers three web-attack categories.
 - Attack examples are very rare compared with benign flows.
-- Repeated feature signatures across dates limit how broadly cross-day independence can be interpreted.
-- The findings do not establish generalisation across other networks, dates, or attack categories.
 
 ## AI-Use Disclosure
 
